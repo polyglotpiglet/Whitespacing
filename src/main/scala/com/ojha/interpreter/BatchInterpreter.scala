@@ -8,13 +8,15 @@ object BatchInterpreter {
 
 class BatchInterpreter(stack: mutable.Stack[Int]) extends NumberConverter {
 
+
+
   def interpret(code: List[Char]): Unit = {
     code match {
       case ' ' :: t => t match {
         case ' '  :: tl           => pushToTopOfStack(tl)
         case '\n' :: ' '  :: tl   => duplicateTopOfStack()
-        case '\n' :: '\t' :: tl   =>
-        case '\n' :: '\n' :: tl   =>
+        case '\n' :: '\t' :: tl   => swapTopOfStack()
+        case '\n' :: '\n' :: tl   => discardTopOfStack()
 
       }
     }
@@ -37,6 +39,21 @@ class BatchInterpreter(stack: mutable.Stack[Int]) extends NumberConverter {
       stack.push(n)
     }
   }
+
+  private def discardTopOfStack(): Unit = {
+    if (stack.nonEmpty) stack.pop()
+  }
+
+  private def swapTopOfStack(): Unit = {
+    if (stack.size > 1) {
+      val one = stack.pop()
+      val two = stack.pop()
+      stack.push(one)
+      stack.push(two)
+    }
+
+  }
+
 
 
 }
