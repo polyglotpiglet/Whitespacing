@@ -185,4 +185,244 @@ class BatchInterperterSpec extends FlatSpec with Matchers {
     // then
     stack.size should equal(0)
   }
+
+  // -----------------------------------------------------------------------------
+  // Add top of stack
+  // -----------------------------------------------------------------------------
+
+  it should "throw exception on addition if stack is empty" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val interpreter = new BatchInterpreter(stack)
+
+    val thrown = intercept[RuntimeException] {
+      interpreter.interpret("\t  ") // [tab, space, space]
+    }
+    thrown.getMessage should equal("Cannot add top two numbers in stack when stack size = 0")
+  }
+
+  it should "throw exception on addition if stack size is one" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val interpreter = new BatchInterpreter(stack)
+    stack.push(5)
+
+    val thrown = intercept[RuntimeException] {
+      interpreter.interpret("\t  ") // [tab, space, space]
+    }
+    thrown.getMessage should equal("Cannot add top two numbers in stack when stack size = 1")
+  }
+
+  it should "add top two stack elements" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val interpreter = new BatchInterpreter(stack)
+    stack.push(5)
+    stack.push(3)
+    stack.push(3)
+
+    // when
+    interpreter.interpret("\t  ") // [tab, space, space]
+
+    // then
+    stack.size should equal(2)
+    stack.pop should equal(6)
+  }
+
+  // -----------------------------------------------------------------------------
+  // Subtract top of stack
+  // -----------------------------------------------------------------------------
+
+  it should "throw exception on subtraction if stack is empty" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val interpreter = new BatchInterpreter(stack)
+
+    // when
+    val thrown = intercept[RuntimeException] {
+      interpreter.interpret("\t \t")
+    }
+
+    // then
+    thrown.getMessage should equal("Cannot subtract top two numbers in stack when stack size = 0")
+  }
+
+  it should "throw exception on subtraction if stack size is one" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val interpreter = new BatchInterpreter(stack)
+    stack.push(5)
+
+    // when
+    val thrown = intercept[RuntimeException] {
+      interpreter.interpret("\t \t")
+    }
+
+    // then
+    thrown.getMessage should equal("Cannot subtract top two numbers in stack when stack size = 1")
+  }
+
+  it should "subtract top two stack elements" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val interpreter = new BatchInterpreter(stack)
+    stack.push(5)
+    stack.push(4)
+    stack.push(3)
+
+    // when
+    interpreter.interpret("\t \t")
+
+    // then
+    stack.size should equal(2)
+    stack.pop should equal(1)
+  }
+
+  // -----------------------------------------------------------------------------
+  // Multiple top of stack
+  // -----------------------------------------------------------------------------
+
+  it should "throw exception on multiply if stack is empty" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val interpreter = new BatchInterpreter(stack)
+
+    // when
+    val thrown = intercept[RuntimeException] {
+      interpreter.interpret("\t \n")
+    }
+
+    // then
+    thrown.getMessage should equal("Cannot multiply top two numbers in stack when stack size = 0")
+  }
+
+  it should "throw exception on multiply if stack size is one" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val interpreter = new BatchInterpreter(stack)
+    stack.push(5)
+
+    // when
+    val thrown = intercept[RuntimeException] {
+      interpreter.interpret("\t \n")
+    }
+
+    // then
+    thrown.getMessage should equal("Cannot multiply top two numbers in stack when stack size = 1")
+  }
+
+  it should "multiply top two stack elements" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val interpreter = new BatchInterpreter(stack)
+    stack.push(5)
+    stack.push(4)
+    stack.push(3)
+
+    // when
+    interpreter.interpret("\t \n")
+
+    // then
+    stack.size should equal(2)
+    stack.pop should equal(12)
+  }
+
+  // -----------------------------------------------------------------------------
+  // Divide top of stack
+  // -----------------------------------------------------------------------------
+
+  it should "throw exception on divide if stack is empty" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val interpreter = new BatchInterpreter(stack)
+
+    // when
+    val thrown = intercept[RuntimeException] {
+      interpreter.interpret("\t\t ")
+    }
+
+    // then
+    thrown.getMessage should equal("Cannot divide top two numbers in stack when stack size = 0")
+  }
+
+  it should "throw exception on divide if stack size is one" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val interpreter = new BatchInterpreter(stack)
+    stack.push(5)
+
+    // when
+    val thrown = intercept[RuntimeException] {
+      interpreter.interpret("\t\t ")
+    }
+
+    // then
+    thrown.getMessage should equal("Cannot divide top two numbers in stack when stack size = 1")
+  }
+
+  it should "divide top two stack elements" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val interpreter = new BatchInterpreter(stack)
+    stack.push(5)
+    stack.push(4)
+    stack.push(3)
+
+    // when
+    interpreter.interpret("\t\t ")
+
+    // then
+    stack.size should equal(2)
+    stack.pop should equal(1)
+  }
+
+  // -----------------------------------------------------------------------------
+  // Modulo top of stack
+  // -----------------------------------------------------------------------------
+
+  it should "throw exception on modulo if stack is empty" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val interpreter = new BatchInterpreter(stack)
+
+    // when
+    val thrown = intercept[RuntimeException] {
+      interpreter.interpret("\t\t\t")
+    }
+
+    // then
+    thrown.getMessage should equal("Cannot find b mod a of top two numbers in stack when stack size = 0")
+  }
+
+  it should "throw exception on modulo if stack size is one" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val interpreter = new BatchInterpreter(stack)
+    stack.push(5)
+
+    // when
+    val thrown = intercept[RuntimeException] {
+      interpreter.interpret("\t\t\t")
+    }
+
+    // then
+    thrown.getMessage should equal("Cannot find b mod a of top two numbers in stack when stack size = 1")
+  }
+
+  it should "modulo top two stack elements" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val interpreter = new BatchInterpreter(stack)
+    stack.push(5)
+    stack.push(7)
+    stack.push(3)
+
+    // when
+    interpreter.interpret("\t\t\t")
+
+    // then
+    stack.size should equal(2)
+    stack.pop should equal(1)
+  }
+
 }
