@@ -12,41 +12,43 @@ class BatchInterpreter(stack: mutable.Stack[Int], labels: mutable.Map[String, Li
   this: Input with Output =>
 
   def interpret(code: String): Unit = {
-    interpret(code.toList)
+    interpret(code.toList, code.toList)
   }
 
+  def interpret(code: Seq[Char]): Unit = interpret(code, code)
+
   @tailrec
-  final def interpret(code: Seq[Char]): Unit = {
+  private def interpret(code: Seq[Char], original: Seq[Char]): Unit = {
     code match {
       case ' ' :: t => t match {
-        case ' '  :: tl           => pushToTopOfStack(tl)   ; interpret(tl.dropWhile(_ != '\n').tail)
-        case '\n' :: ' '  :: tl   => duplicateTopOfStack()  ; interpret(tl)
-        case '\n' :: '\t' :: tl   => swapTopOfStack()       ; interpret(tl)
-        case '\n' :: '\n' :: tl   => discardTopOfStack()    ; interpret(tl)
+        case ' '  :: tl           => pushToTopOfStack(tl)   ; interpret(tl.dropWhile(_ != '\n').tail, original)
+        case '\n' :: ' '  :: tl   => duplicateTopOfStack()  ; interpret(tl, original)
+        case '\n' :: '\t' :: tl   => swapTopOfStack()       ; interpret(tl, original)
+        case '\n' :: '\n' :: tl   => discardTopOfStack()    ; interpret(tl, original)
         case _ => throw new RuntimeException(s"Invalid stack command [${prettyPrint(t)}]")
 
       }
       case '\t' :: ' ' :: t => t match {
-        case ' '  :: ' '  :: tl => addTopOfStack()          ; interpret(tl)
-        case ' '  :: '\t' :: tl => subtractTopOfStack()     ; interpret(tl)
-        case ' '  :: '\n' :: tl => multiplyTopOfStack()     ; interpret(tl)
-        case '\t' :: ' '  :: tl => divideTopOfStack()       ; interpret(tl)
-        case '\t' :: '\t' :: tl => moduloTopOfStack()       ; interpret(tl)
+        case ' '  :: ' '  :: tl => addTopOfStack()          ; interpret(tl, original)
+        case ' '  :: '\t' :: tl => subtractTopOfStack()     ; interpret(tl, original)
+        case ' '  :: '\n' :: tl => multiplyTopOfStack()     ; interpret(tl, original)
+        case '\t' :: ' '  :: tl => divideTopOfStack()       ; interpret(tl, original)
+        case '\t' :: '\t' :: tl => moduloTopOfStack()       ; interpret(tl, original)
         case _ => throw new RuntimeException(s"Invalid arithmetic command: [${prettyPrint(t)}]")
       }
       case '\t' :: '\n' :: t => t match {
-        case ' '  :: ' '  :: tl => outputCharacterAtTopOfStack()    ; interpret(tl)
-        case ' '  :: '\t' :: tl => outputIntAtTopOfStack()          ; interpret(tl)
-        case '\t' :: ' '  :: tl => inputCharAndPutOnStack()         ; interpret(tl)
-        case '\t' :: '\t' :: tl => inputIntAndPutOnStack()          ; interpret(tl)
+        case ' '  :: ' '  :: tl => outputCharacterAtTopOfStack()    ; interpret(tl, original)
+        case ' '  :: '\t' :: tl => outputIntAtTopOfStack()          ; interpret(tl, original)
+        case '\t' :: ' '  :: tl => inputCharAndPutOnStack()         ; interpret(tl, original)
+        case '\t' :: '\t' :: tl => inputIntAndPutOnStack()          ; interpret(tl, original)
         case _ => throw new RuntimeException(s"Invalid IO command: [${prettyPrint(t)}]")
       }
       case '\n' :: t => t match {
-        case ' '  :: ' '   :: tl => markALocation(tl)                   ; interpret(tl.dropWhile(_!='\n').tail)
+        case ' '  :: ' '   :: tl => markALocation(tl)                   ; interpret(tl.dropWhile(_!='\n').tail, original)
         case ' '  :: '\t'  :: tl => callASubroutine(tl)
-        case ' '  :: '\n'  :: tl => interpret(jumpUnconditionallyToALabel(tl))
-        case '\t' :: ' '   :: tl => interpret(jumpToLabelIfTopOfStackIsZero(tl))
-        case '\t' :: '\t'  :: tl => interpret(jumpToLabelIfTopOfStackIsNegative(tl))
+        case ' '  :: '\n'  :: tl => interpret(jumpUnconditionallyToALabel(tl, original), original)
+        case '\t' :: ' '   :: tl => interpret(jumpToLabelIfTopOfStackIsZero(tl, original), original)
+        case '\t' :: '\t'  :: tl => interpret(jumpToLabelIfTopOfStackIsNegative(tl, original), original)
         case '\n' :: '\n'  :: tl => // end program
         case _ => throw new RuntimeException(s"Invalid flow control command: [${prettyPrint(t)}]")
       }
@@ -149,21 +151,23 @@ class BatchInterpreter(stack: mutable.Stack[Int], labels: mutable.Map[String, Li
 
   private def inputIntAndPutOnStack() = stack.push(readInt())
 
-  def markALocation(t: List[Char]): Unit = {
+  private def markALocation(t: List[Char]): Unit = {
     val label = t.takeWhile(_ != '\n').mkString
     val toSave = t.dropWhile(_ != '\n').tail
     labels(label) = toSave
   }
 
-  def callASubroutine(t: List[Char]): Unit = ???
+  private def callASubroutine(t: List[Char]): Unit = ???
 
-  def jumpUnconditionallyToALabel(s: List[Char]): List[Char] = {
+  private def jumpUnconditionallyToALabel(s: List[Char], entireCmd: Seq[Char]): List[Char] = {
     val label = s.takeWhile(_ != '\n').mkString
+    if (!labels.contains(label)) tryToSetLabel(label, entireCmd)
     labels.getOrElse(label, throw new RuntimeException(s"Unable to goto label: [${prettyPrint(label)}] because label was not found"))
   }
 
-  def jumpToLabelIfTopOfStackIsZero(s: List[Char]): List[Char] = {
+  private def jumpToLabelIfTopOfStackIsZero(s: List[Char], entireCmd: Seq[Char]): List[Char] = {
     val label = s.takeWhile(_ != '\n').mkString
+    if (!labels.contains(label)) tryToSetLabel(label, entireCmd)
     if (stack.nonEmpty) {
       val top = stack.pop()
       if (top == 0) return labels.getOrElse(label, throw new RuntimeException(s"Unable to goto label: [${prettyPrint(label)}] because label was not found"))
@@ -171,8 +175,20 @@ class BatchInterpreter(stack: mutable.Stack[Int], labels: mutable.Map[String, Li
     s.dropWhile(_!='\n').tail
   }
 
-  def jumpToLabelIfTopOfStackIsNegative(s: List[Char]): List[Char] = {
+  private def tryToSetLabel(label: String, entireCmd: Seq[Char]): Unit = {
+    val makeLabelCmd = "\n  " + label
+    entireCmd.mkString.indexOf(makeLabelCmd) match {
+     case -1 =>
+     case i => {
+       val subString = entireCmd.mkString.substring(i + makeLabelCmd.length + 1).toList
+       labels(label) = subString
+     }
+   }
+  }
+
+  private def jumpToLabelIfTopOfStackIsNegative(s: List[Char], entireCmd: Seq[Char]): List[Char] = {
     val label = s.takeWhile(_ != '\n').mkString
+    if (!labels.contains(label)) tryToSetLabel(label, entireCmd)
     if (stack.nonEmpty) {
       val top = stack.pop()
       if (top < 0) return labels.getOrElse(label, throw new RuntimeException(s"Unable to goto label: [${prettyPrint(label)}] because label was not found"))
