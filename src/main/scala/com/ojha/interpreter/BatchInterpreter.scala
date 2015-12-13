@@ -7,7 +7,7 @@ object BatchInterpreter {
   def apply() = new BatchInterpreter(mutable.Stack[Int]()) with Output with Input
 }
 
-class BatchInterpreter(stack: mutable.Stack[Int]) extends NumberConverter {
+class BatchInterpreter(stack: mutable.Stack[Int], labels: mutable.Map[String, List[Char]] = mutable.Map[String, List[Char]]()) extends NumberConverter {
 
   this: Input with Output =>
 
@@ -16,7 +16,7 @@ class BatchInterpreter(stack: mutable.Stack[Int]) extends NumberConverter {
   }
 
   @tailrec
-  final def interpret(code: List[Char]): Unit = {
+  final def interpret(code: Seq[Char]): Unit = {
     code match {
       case ' ' :: t => t match {
         case ' '  :: tl           => pushToTopOfStack(tl)   ; interpret(tl.dropWhile(_ != '\n').tail)
@@ -32,17 +32,26 @@ class BatchInterpreter(stack: mutable.Stack[Int]) extends NumberConverter {
         case ' '  :: '\n' :: tl => multiplyTopOfStack()     ; interpret(tl)
         case '\t' :: ' '  :: tl => divideTopOfStack()       ; interpret(tl)
         case '\t' :: '\t' :: tl => moduloTopOfStack()       ; interpret(tl)
-        case _ => throw new RuntimeException(s"Invalid arithmetic command [${prettyPrint(t)}]")
+        case _ => throw new RuntimeException(s"Invalid arithmetic command: [${prettyPrint(t)}]")
       }
       case '\t' :: '\n' :: t => t match {
-        case ' '  :: ' '  :: tl => outputCharacterAtTopOfStack()  ; interpret(tl)
-        case ' '  :: '\t' :: tl => outputIntAtTopOfStack()  ; interpret(tl)
-        case '\t' :: ' '  :: tl => inputCharAndPutOnStack()  ; interpret(tl)
-        case '\t' :: '\t' :: tl => inputIntAndPutOnStack()  ; interpret(tl)
-        case _ => throw new RuntimeException(s"Invalid IO command [${prettyPrint(t)}]")
+        case ' '  :: ' '  :: tl => outputCharacterAtTopOfStack()    ; interpret(tl)
+        case ' '  :: '\t' :: tl => outputIntAtTopOfStack()          ; interpret(tl)
+        case '\t' :: ' '  :: tl => inputCharAndPutOnStack()         ; interpret(tl)
+        case '\t' :: '\t' :: tl => inputIntAndPutOnStack()          ; interpret(tl)
+        case _ => throw new RuntimeException(s"Invalid IO command: [${prettyPrint(t)}]")
       }
-      case Nil =>
+      case '\n' :: t => t match {
+        case ' '  :: ' '   :: tl => markALocation(tl)                   ; interpret(tl.dropWhile(_!='\n').tail)
+        case ' '  :: '\t'  :: tl => callASubroutine(tl)
+        case ' '  :: '\n'  :: tl => interpret(jumpUnconditionallyToALabel(tl))
+        case '\t' :: ' '   :: tl => interpret(jumpToLabelIfTopOfStackIsZero(tl))
+        case '\t' :: '\t'  :: tl => interpret(jumpToLabelIfTopOfStackIsNegative(tl))
+        case '\n' :: '\n'  :: tl => // end program
+        case _ => throw new RuntimeException(s"Invalid flow control command: [${prettyPrint(t)}]")
+      }
       case h :: t => throw new RuntimeException(s"Unrecognised command: $h")
+      case Nil =>
     }
   }
 
@@ -139,6 +148,40 @@ class BatchInterpreter(stack: mutable.Stack[Int]) extends NumberConverter {
   private def inputCharAndPutOnStack() = stack.push(readChar())
 
   private def inputIntAndPutOnStack() = stack.push(readInt())
+
+  def markALocation(t: List[Char]): Unit = {
+    val label = t.takeWhile(_ != '\n').mkString
+    val toSave = t.dropWhile(_ != '\n').tail
+    labels(label) = toSave
+  }
+
+  def callASubroutine(t: List[Char]): Unit = ???
+
+  def jumpUnconditionallyToALabel(s: List[Char]): List[Char] = {
+    val label = s.takeWhile(_ != '\n').mkString
+    labels.getOrElse(label, throw new RuntimeException(s"Unable to goto label: [${prettyPrint(label)}] because label was not found"))
+  }
+
+  def jumpToLabelIfTopOfStackIsZero(s: List[Char]): List[Char] = {
+    val label = s.takeWhile(_ != '\n').mkString
+    if (stack.nonEmpty) {
+      val top = stack.pop()
+      stack.push(top)
+      if (top == 0) return labels.getOrElse(label, throw new RuntimeException(s"Unable to goto label: [${prettyPrint(label)}] because label was not found"))
+    }
+    s.dropWhile(_!='\n').tail
+  }
+
+  def jumpToLabelIfTopOfStackIsNegative(s: List[Char]): List[Char] = {
+    val label = s.takeWhile(_ != '\n').mkString
+    if (stack.nonEmpty) {
+      val top = stack.pop()
+      stack.push(top)
+      if (top < 0) return labels.getOrElse(label, throw new RuntimeException(s"Unable to goto label: [${prettyPrint(label)}] because label was not found"))
+    }
+    s.dropWhile(_!='\n').tail
+  }
+
 
   private def prettyPrint(s: Seq[Char]): String =  {
     s.map {

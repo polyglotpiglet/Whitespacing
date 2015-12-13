@@ -257,7 +257,7 @@ class BatchInterperterSpec extends FlatSpec with Matchers {
     }
 
     // then
-    thrown.getMessage should equal("""Invalid arithmetic command [newline,tab]""")
+    thrown.getMessage should equal("""Invalid arithmetic command: [newline,tab]""")
   }
 
   it should "throw exception if arithmetic request is invalid (contains something really weird)" in {
@@ -578,7 +578,7 @@ class BatchInterperterSpec extends FlatSpec with Matchers {
     }
 
     // then
-    thrown.getMessage should equal("""Invalid IO command [newline,tab]""")
+    thrown.getMessage should equal("""Invalid IO command: [newline,tab]""")
   }
 
   it should "throw exception if io is invalid (contains something really weird)" in {
@@ -682,4 +682,204 @@ class BatchInterperterSpec extends FlatSpec with Matchers {
     stack.pop should equal(97)
     stack.pop should equal(8)
   }
+
+  // -----------------------------------------------------------------------------
+  // LF
+  // -----------------------------------------------------------------------------
+
+  it should "throw exception if flow control request is invalid (doesnt match)" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val interpreter = new BatchInterpreter(stack) with Output with Input
+
+    // when
+    val thrown = intercept[RuntimeException] {
+      interpreter.interpret("\n\n ") // dodgy command
+    }
+
+    // then
+    thrown.getMessage should equal("""Invalid flow control command: [newline,space]""")
+  }
+
+  // -----------------------------------------------------------------------------
+  // Flow control mark locations
+  // -----------------------------------------------------------------------------
+
+  it should "saves label to empty" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val labels = mutable.Map[String, List[Char]]()
+    val interpreter = new BatchInterpreter(stack, labels) with Output with Input
+
+    // when
+    interpreter.interpret("\n   \t    \t\t\n") // [linefeed, space, space] [ space, tab, space, space, space, space, tab, tab] [linefeed]
+
+    // then
+    labels.size == 1
+    labels.get(" \t    \t\t").get should equal(Nil)
+  }
+
+  it should "saves label to push to stack" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val labels = mutable.Map[String, List[Char]]()
+    val interpreter = new BatchInterpreter(stack, labels) with Output with Input
+
+    // when
+    interpreter.interpret("\n   \t    \t\t\n   \t\n") // [linefeed, space, space] [ space, tab, space, space, space, space, tab, tab] [linefeed]
+
+    // then
+    labels.size == 1
+    labels.get(" \t    \t\t").get should equal(List(' ', ' ', ' ', '\t', '\n'))
+  }
+
+  // -----------------------------------------------------------------------------
+  // Flow control got to a label unconditonally
+  // -----------------------------------------------------------------------------
+
+  it should "happily go to saved label" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val labels = mutable.Map[String, List[Char]]()
+    val interpreter = new BatchInterpreter(stack, labels) with Output with Input
+    labels("  \t\t    ") = "   \t\n".toList // [S,S,T,T,S,S,S,S] = push one onto stack
+
+    // when
+    interpreter.interpret("\n \n  \t\t    ") // go to label
+
+    // then
+    stack.size should equal(1)
+    stack.pop should equal(1)
+  }
+
+  it should "throw label not found exception" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val labels = mutable.Map[String, List[Char]]()
+    val interpreter = new BatchInterpreter(stack, labels) with Output with Input
+
+    // when
+    val thrown = intercept[RuntimeException] {
+      interpreter.interpret("\n \n  \t\t    ") // go to label
+    }
+
+    // then
+    thrown.getMessage should equal("""Unable to goto label: [space,space,tab,tab,space,space,space,space] because label was not found""")
+  }
+
+  // -----------------------------------------------------------------------------
+  // Flow control end the program
+  // -----------------------------------------------------------------------------
+
+  it should "terminate and ignore future commands" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val labels = mutable.Map[String, List[Char]]()
+    val interpreter = new BatchInterpreter(stack, labels) with Output with Input
+
+    // when
+    interpreter.interpret("\n\n\n   \t\n")  // terminator followed by push number onto stack
+
+    // then
+    stack.size should equal(0)
+  }
+
+  // -----------------------------------------------------------------------------
+  // Flow control jump to label if top of stack is 0
+  // -----------------------------------------------------------------------------
+
+  it should "happily go to saved label because top of stack is zero" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val labels = mutable.Map[String, List[Char]]()
+    val interpreter = new BatchInterpreter(stack, labels) with Output with Input
+    labels("  \t\t    ") = "   \t\n".toList // [S,S,T,T,S,S,S,S] = push one onto stack
+    stack.push(0)
+
+    // when
+    interpreter.interpret("\n\t   \t\t    \n") // go to label
+
+    // then
+    stack.size should equal(2)
+    stack.pop should equal(1)
+  }
+
+  it should "ignore go to saved label because top of stack is not zero" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val labels = mutable.Map[String, List[Char]]()
+    val interpreter = new BatchInterpreter(stack, labels) with Output with Input
+    labels("  \t\t    ") = "   \t\n".toList // [S,S,T,T,S,S,S,S] = push one onto stack
+    stack.push(2)
+    // when
+    interpreter.interpret("\n\t   \t\t    \n") // go to label
+
+    // then
+    stack.size should equal(1)
+    stack.pop should equal(2)
+  }
+
+  it should "ignore go to saved label because stack is empty" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val labels = mutable.Map[String, List[Char]]()
+    val interpreter = new BatchInterpreter(stack, labels) with Output with Input
+    labels("  \t\t    ") = "   \t\n".toList // [S,S,T,T,S,S,S,S] = push one onto stack
+
+    // when
+    interpreter.interpret("\n\t   \t\t    \n") // go to label
+
+    // then
+    stack.size should equal(0)
+  }
+
+  // -----------------------------------------------------------------------------
+  // Flow control jump to label if top of stack is 0
+  // -----------------------------------------------------------------------------
+
+  it should "happily go to saved label because top of stack is negative" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val labels = mutable.Map[String, List[Char]]()
+    val interpreter = new BatchInterpreter(stack, labels) with Output with Input
+    labels("  \t\t    ") = "   \t\n".toList // [S,S,T,T,S,S,S,S] = push one onto stack
+    stack.push(-1)
+
+    // when
+    interpreter.interpret("\n\t\t  \t\t    \n") // go to label
+
+    // then
+    stack.size should equal(2)
+    stack.pop should equal(1)
+  }
+
+  it should "ignore go to saved label because top of stack is not negative" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val labels = mutable.Map[String, List[Char]]()
+    val interpreter = new BatchInterpreter(stack, labels) with Output with Input
+    labels("  \t\t    ") = "   \t\n".toList // [S,S,T,T,S,S,S,S] = push one onto stack
+    stack.push(5)
+    // when
+    interpreter.interpret("\n\t\t  \t\t    \n") // go to label
+
+    // then
+    stack.size should equal(1)
+    stack.pop should equal(5)
+  }
+
+  it should "ignore go to saved label because stack is empty (ie top is not less than 0)" in {
+    // given
+    val stack = mutable.Stack[Int]()
+    val labels = mutable.Map[String, List[Char]]()
+    val interpreter = new BatchInterpreter(stack, labels) with Output with Input
+    labels("  \t\t    ") = "   \t\n".toList // [S,S,T,T,S,S,S,S] = push one onto stack
+
+    // when
+    interpreter.interpret("\n\t\t  \t\t    \n") // go to label
+
+    // then
+    stack.size should equal(0)
+  }
+
 }
