@@ -14,5 +14,3 @@ libraryDependencies ++= {
     "org.scalatest"     %% "scalatest" % scalaTestVersion % "test"
   )
 }
-
-//Revolver.settings
