@@ -1,35 +1,49 @@
 package com.ojha.interpreter
 
+import scala.annotation.tailrec
 import scala.collection._
 
 object BatchInterpreter {
-  def apply() = new BatchInterpreter(mutable.Stack[Int]())
+  def apply() = new BatchInterpreter(mutable.Stack[Int]()) with Output with Input
 }
 
 class BatchInterpreter(stack: mutable.Stack[Int]) extends NumberConverter {
 
-
-
-  def interpret(code: List[Char]): Unit = {
-    code match {
-      case ' ' :: t => t match {
-        case ' '  :: tl           => pushToTopOfStack(tl)
-        case '\n' :: ' '  :: tl   => duplicateTopOfStack()
-        case '\n' :: '\t' :: tl   => swapTopOfStack()
-        case '\n' :: '\n' :: tl   => discardTopOfStack()
-      }
-      case '\t' :: t => t match {
-        case ' '  :: ' '  :: tl => addTopOfStack()
-        case ' '  :: '\t' :: tl => subtractTopOfStack()
-        case ' '  :: '\n' :: tl => multiplyTopOfStack()
-        case '\t' :: ' '  :: tl => divideTopOfStack()
-        case '\t' :: '\t' :: tl => moduloTopOfStack()
-      }
-    }
-  }
+  this: Input with Output =>
 
   def interpret(code: String): Unit = {
-   interpret(code.toList)
+    interpret(code.toList)
+  }
+
+  @tailrec
+  final def interpret(code: List[Char]): Unit = {
+    code match {
+      case ' ' :: t => t match {
+        case ' '  :: tl           => pushToTopOfStack(tl)   ; interpret(tl.dropWhile(_ != '\n').tail)
+        case '\n' :: ' '  :: tl   => duplicateTopOfStack()  ; interpret(tl)
+        case '\n' :: '\t' :: tl   => swapTopOfStack()       ; interpret(tl)
+        case '\n' :: '\n' :: tl   => discardTopOfStack()    ; interpret(tl)
+        case _ => throw new RuntimeException(s"Invalid stack command [${prettyPrint(t)}]")
+
+      }
+      case '\t' :: ' ' :: t => t match {
+        case ' '  :: ' '  :: tl => addTopOfStack()          ; interpret(tl)
+        case ' '  :: '\t' :: tl => subtractTopOfStack()     ; interpret(tl)
+        case ' '  :: '\n' :: tl => multiplyTopOfStack()     ; interpret(tl)
+        case '\t' :: ' '  :: tl => divideTopOfStack()       ; interpret(tl)
+        case '\t' :: '\t' :: tl => moduloTopOfStack()       ; interpret(tl)
+        case _ => throw new RuntimeException(s"Invalid arithmetic command [${prettyPrint(t)}]")
+      }
+      case '\t' :: '\n' :: t => t match {
+        case ' '  :: ' '  :: tl => outputCharacterAtTopOfStack()  ; interpret(tl)
+        case ' '  :: '\t' :: tl => outputIntAtTopOfStack()  ; interpret(tl)
+        case '\t' :: ' '  :: tl => inputCharAndPutOnStack()  ; interpret(tl)
+        case '\t' :: '\t' :: tl => inputIntAndPutOnStack()  ; interpret(tl)
+        case _ => throw new RuntimeException(s"Invalid IO command [${prettyPrint(t)}]")
+      }
+      case Nil =>
+      case h :: t => throw new RuntimeException(s"Unrecognised command: $h")
+    }
   }
 
   private def pushToTopOfStack(code: List[Char]): Unit = {
@@ -60,7 +74,7 @@ class BatchInterpreter(stack: mutable.Stack[Int]) extends NumberConverter {
 
   }
 
-  def addTopOfStack(): Unit = {
+  private def addTopOfStack(): Unit = {
     if (stack.size > 1) {
       val a = stack.pop()
       val b = stack.pop()
@@ -69,7 +83,7 @@ class BatchInterpreter(stack: mutable.Stack[Int]) extends NumberConverter {
     else throw new RuntimeException(s"Cannot add top two numbers in stack when stack size = ${stack.size}")
   }
 
-  def subtractTopOfStack(): Unit = {
+  private def subtractTopOfStack(): Unit = {
     if (stack.size > 1) {
       val a = stack.pop()
       val b = stack.pop()
@@ -79,7 +93,7 @@ class BatchInterpreter(stack: mutable.Stack[Int]) extends NumberConverter {
 
   }
 
-  def multiplyTopOfStack(): Unit = {
+  private def multiplyTopOfStack(): Unit = {
     if (stack.size > 1) {
       val a = stack.pop()
       val b = stack.pop()
@@ -89,7 +103,7 @@ class BatchInterpreter(stack: mutable.Stack[Int]) extends NumberConverter {
 
   }
 
-  def divideTopOfStack(): Unit = {
+  private def divideTopOfStack(): Unit = {
     if (stack.size > 1) {
       val a = stack.pop()
       val b = stack.pop()
@@ -98,7 +112,7 @@ class BatchInterpreter(stack: mutable.Stack[Int]) extends NumberConverter {
     else throw new RuntimeException(s"Cannot divide top two numbers in stack when stack size = ${stack.size}")
   }
 
-  def moduloTopOfStack(): Unit = {
+  private def moduloTopOfStack(): Unit = {
     if (stack.size > 1) {
       val a = stack.pop()
       val b = stack.pop()
@@ -108,6 +122,31 @@ class BatchInterpreter(stack: mutable.Stack[Int]) extends NumberConverter {
 
   }
 
+  private def outputCharacterAtTopOfStack() = {
+    if (stack.nonEmpty) {
+      print(stack.pop().toChar)
+    }
+    else throw new RuntimeException("Cannot print top of stack because stack is empty")
+  }
 
+  private def outputIntAtTopOfStack() = {
+    if (stack.nonEmpty) {
+      print(stack.pop())
+    }
+    else throw new RuntimeException("Cannot print top of stack because stack is empty")
+  }
+
+  private def inputCharAndPutOnStack() = stack.push(readChar())
+
+  private def inputIntAndPutOnStack() = stack.push(readInt())
+
+  private def prettyPrint(s: Seq[Char]): String =  {
+    s.map {
+      case '\t' => "tab"
+      case '\n' => "newline"
+      case ' '  => "space"
+      case x: Char => throw new RuntimeException(s"String contains dodgy char: $x")
+    }.mkString(",")
+  }
 
 }
