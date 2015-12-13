@@ -800,7 +800,7 @@ class BatchInterperterSpec extends FlatSpec with Matchers {
     interpreter.interpret("\n\t   \t\t    \n") // go to label
 
     // then
-    stack.size should equal(2)
+    stack.size should equal(1)
     stack.pop should equal(1)
   }
 
@@ -815,8 +815,7 @@ class BatchInterperterSpec extends FlatSpec with Matchers {
     interpreter.interpret("\n\t   \t\t    \n") // go to label
 
     // then
-    stack.size should equal(1)
-    stack.pop should equal(2)
+    stack.size should equal(0)
   }
 
   it should "ignore go to saved label because stack is empty" in {
@@ -849,7 +848,7 @@ class BatchInterperterSpec extends FlatSpec with Matchers {
     interpreter.interpret("\n\t\t  \t\t    \n") // go to label
 
     // then
-    stack.size should equal(2)
+    stack.size should equal(1)
     stack.pop should equal(1)
   }
 
@@ -864,8 +863,7 @@ class BatchInterperterSpec extends FlatSpec with Matchers {
     interpreter.interpret("\n\t\t  \t\t    \n") // go to label
 
     // then
-    stack.size should equal(1)
-    stack.pop should equal(5)
+    stack.size should equal(0)
   }
 
   it should "ignore go to saved label because stack is empty (ie top is not less than 0)" in {

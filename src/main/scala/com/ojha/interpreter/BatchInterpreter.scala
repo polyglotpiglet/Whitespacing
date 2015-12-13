@@ -166,7 +166,6 @@ class BatchInterpreter(stack: mutable.Stack[Int], labels: mutable.Map[String, Li
     val label = s.takeWhile(_ != '\n').mkString
     if (stack.nonEmpty) {
       val top = stack.pop()
-      stack.push(top)
       if (top == 0) return labels.getOrElse(label, throw new RuntimeException(s"Unable to goto label: [${prettyPrint(label)}] because label was not found"))
     }
     s.dropWhile(_!='\n').tail
@@ -176,7 +175,6 @@ class BatchInterpreter(stack: mutable.Stack[Int], labels: mutable.Map[String, Li
     val label = s.takeWhile(_ != '\n').mkString
     if (stack.nonEmpty) {
       val top = stack.pop()
-      stack.push(top)
       if (top < 0) return labels.getOrElse(label, throw new RuntimeException(s"Unable to goto label: [${prettyPrint(label)}] because label was not found"))
     }
     s.dropWhile(_!='\n').tail
